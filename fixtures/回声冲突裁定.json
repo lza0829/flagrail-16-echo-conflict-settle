@@ -1,0 +1,31 @@
+{
+  "类型": "回声冲突",
+  "批次编号": "回声冲突-demo",
+  "票号": "票-checkout.new_tax@3-gray10",
+  "回读": [
+    {
+      "票号": "票-checkout.new_tax@3-gray10",
+      "边缘键": "edge-conflict-a",
+      "所见版本键": "checkout.new_tax@3",
+      "结果": "确认"
+    },
+    {
+      "票号": "票-checkout.new_tax@3-gray10",
+      "边缘键": "edge-conflict-a",
+      "所见版本键": "checkout.new_tax@2",
+      "结果": "偏差"
+    },
+    {
+      "票号": "票-checkout.new_tax@3-gray10",
+      "边缘键": "edge-conflict-b",
+      "所见版本键": "checkout.new_tax@2",
+      "结果": "偏差"
+    },
+    {
+      "票号": "票-checkout.new_tax@3-gray10",
+      "边缘键": "edge-conflict-b",
+      "所见版本键": "checkout.new_tax@3",
+      "结果": "确认"
+    }
+  ]
+}

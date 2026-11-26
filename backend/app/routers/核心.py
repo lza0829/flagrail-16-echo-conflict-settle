@@ -1,5 +1,6 @@
 import json
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from app.db import 夹具目录, 连接
@@ -29,9 +30,11 @@ class 下发请求(BaseModel):
 
 
 class 回读请求(BaseModel):
+    model_config = {"extra": "allow"}
+
     证号: str = ""
-    票号: str
-    边缘键: str
+    票号: str = ""
+    边缘键: str = ""
     所见版本键: str = ""
     结果: str = "确认"
     说明: str = ""
@@ -128,12 +131,10 @@ def 列下发(状态: str = ""):
 
 
 @路由.get("/回读证")
-def 列回读():
-    conn = 连接()
-    try:
-        return [dict(r) for r in conn.execute("SELECT * FROM 回读证 ORDER BY 回读时 DESC LIMIT 200")]
-    finally:
-        conn.close()
+def 列回读(票号: str = ""):
+    # 回读台数据源：不可变回声流水 + 裁定标记 + 旁证序号（保留全部历史，不只最后一行）。
+    from app.services import 回声裁定
+    return 回声裁定.回读台行(票号)
 
 
 @路由.get("/命运账")
@@ -187,8 +188,16 @@ def 做下发(体: 下发请求):
 
 
 @路由.post("/回读")
-def 做回读(体: 回读请求):
-    return 回读.记回读(体.model_dump())
+async def 做回读(request: Request):
+    # 同时收 query 与 JSON 体，并容忍边缘/票的别名字段（归一在 service 内）。
+    p = {k: v for k, v in request.query_params.items()}
+    try:
+        body = await request.json()
+        if isinstance(body, dict):
+            p.update(body)
+    except Exception:
+        pass
+    return await run_in_threadpool(回读.记回读, p)
 
 
 @路由.post("/回滚")
@@ -202,11 +211,48 @@ def 做失效(体: 失效请求):
 
 
 @路由.post("/装载/夹具")
-def 装夹具(名: str = "入轨样例"):
-    路径 = 夹具目录 / f"{名}.json"
-    if not 路径.exists():
-        raise HTTPException(404, f"夹具不存在:{名}")
-    体 = json.loads(路径.read_text(encoding="utf-8"))
+async def 装夹具(request: Request):
+    q = {k: v for k, v in request.query_params.items()}
+    body = {}
+    try:
+        body = await request.json()
+        if not isinstance(body, dict):
+            body = {}
+    except Exception:
+        body = {}
+
+    显式名 = q.get("名") or q.get("name") or q.get("夹具名") \
+        or body.get("名") or body.get("夹具名") or body.get("name")
+    内联类型 = body.get("类型") or body.get("type")
+
+    if 显式名:
+        名 = str(显式名).replace("\\", "/").split("/")[-1]
+        if 名.endswith(".json"):
+            名 = 名[:-5]
+        路径 = 夹具目录 / f"{名}.json"
+        if 路径.exists():
+            体 = json.loads(路径.read_text(encoding="utf-8"))
+            # 调用方的控制项（策略/双序等）覆盖夹具文件内同名键。
+            for k in ("策略", "策略值", "双序", "票号"):
+                if k in body:
+                    体[k] = body[k]
+        elif 内联类型:
+            体 = body
+        else:
+            raise HTTPException(404, f"夹具不存在:{名}")
+    elif 内联类型:
+        # 无夹具名但给了内联类型体：直接按内联体分派。
+        体 = body
+    else:
+        # 完全无参：保持底座默认，装入轨样例。
+        名 = "入轨样例"
+        路径 = 夹具目录 / f"{名}.json"
+        if not 路径.exists():
+            raise HTTPException(404, f"夹具不存在:{名}")
+        体 = json.loads(路径.read_text(encoding="utf-8"))
+
+    if 内联类型 and not 体.get("类型"):
+        体["类型"] = 内联类型
     类型 = 体.get("类型", "入轨")
     if 类型 == "入轨":
         return 入轨.入一批(体)
@@ -217,6 +263,9 @@ def 装夹具(名: str = "入轨样例"):
         return 下发.装下发夹具(体)
     if 类型 == "回读":
         return 回读.装回读夹具(体)
+    if 类型 in ("回声冲突", "回声冲突裁定"):
+        from app.services import 回声裁定
+        return 回声裁定.装冲突夹具(体)
     if 类型 == "回滚":
         return 命运.回滚票(体)
     raise HTTPException(400, f"未知夹具类型:{类型}")

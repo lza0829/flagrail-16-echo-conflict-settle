@@ -9,7 +9,7 @@ export default function 命运账() {
   return (
     <div>
       <h1 className="题">命运账</h1>
-      <p className="述">回滚 / 失效写命运。回滚票必须落命运条，否则贯验失败。</p>
+      <p className="述">回滚 / 失效写命运；回声冲突落「回声裁定」，放量门决策落「放量准 / 放量拒」。回滚票必须落命运条，否则贯验失败。</p>
       <div className="行">
         <button className="焰" onClick={async () => { await postFixture("回滚样例"); await 刷(); set讯("已灌回滚样例"); }}>灌回滚样例</button>
         <button className="次" onClick={() => 刷()}>刷新</button>

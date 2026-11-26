@@ -9,7 +9,7 @@ export default function 轨贯验() {
   return (
     <div>
       <h1 className="题">轨贯验</h1>
-      <p className="述">入轨版本 ↔ 下发票 ↔ 回读 ↔ 命运 互证。悬空下发 / 回读拧花 / 回滚无命运 → 不通过。</p>
+      <p className="述">入轨版本 ↔ 下发票 ↔ 回读 ↔ 命运 互证。悬空下发 / 回读拧花 / 回滚无命运 → 不通过；回声冲突裁定另校验「裁定结果·正式证·放量门」共用的正式集是否漂移、双结果是否无裁决、旁证历史是否相符。</p>
       <div className="行">
         <button onClick={async () => { const g = await post("/贯验"); await 刷(); set讯(g.是否通过 ? "通过" : g.说明); }}>跑贯验</button>
         <button className="次" onClick={() => 刷()}>刷新</button>
